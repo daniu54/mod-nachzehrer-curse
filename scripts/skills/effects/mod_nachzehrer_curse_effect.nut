@@ -92,6 +92,36 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		local ghoul = this.Tactical.spawnEntity("scripts/entity/tactical/enemies/ghoul", tile.Coords.X, tile.Coords.Y);
 		::logInfo("[mod_nachzehrer_curse] Nachzehrer spawned");
 
+		if (this.m.GhoulFaction == "player")
+		{
+			ghoul.setFaction(this.Const.Faction.Player);
+			ghoul.m.IsControlledByPlayer = true;
+			ghoul.setName("Cursed " + cursed.getName());
+			ghoul.getSprite("body").setHorizontalFlipping(true);
+			ghoul.getSprite("head").setHorizontalFlipping(true);
+			::logInfo("[mod_nachzehrer_curse] Ghoul set as player-controlled");
+		}
+		else if (this.m.GhoulFaction == "player_animal")
+		{
+			ghoul.setFaction(this.Const.Faction.PlayerAnimals);
+			ghoul.setName("Cursed " + cursed.getName());
+			ghoul.getSprite("body").setHorizontalFlipping(true);
+			ghoul.getSprite("head").setHorizontalFlipping(true);
+			::logInfo("[mod_nachzehrer_curse] Ghoul set as friendly AI (PlayerAnimals)");
+		}
+		else
+		{
+			ghoul.setFaction(this.Const.Faction.Undead);
+			ghoul.setName("Cursed " + cursed.getName());
+			::logInfo("[mod_nachzehrer_curse] Ghoul set as enemy (Undead)");
+		}
+
+		ghoul.setMoraleState(this.Const.MoraleState.Confident);
+
+		this.inheritStats(ghoul, sourceProps, sourceHp);
+		this.inheritPerks(ghoul, sourcePerks);
+		ghoul.getSkills().update();
+
 		// Remove this effect from the (now off-map) entity's container
 		this.removeSelf();
 	}
