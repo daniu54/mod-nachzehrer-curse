@@ -122,6 +122,13 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		this.inheritPerks(ghoul, sourcePerks);
 		ghoul.getSkills().update();
 
+		// spawnEntity queues the ghoul for next round; replicate the wardog/summon
+		// IsActingImmediately mechanism so the ghoul acts this round.
+		this.Tactical.TurnSequenceBar.removeEntity(ghoul);
+		ghoul.m.IsActingImmediately = true;
+		this.Tactical.TurnSequenceBar.insertEntity(ghoul);
+		::logInfo("[mod_nachzehrer_curse] Nachzehrer inserted to act immediately");
+
 		// Remove this effect from the (now off-map) entity's container
 		this.removeSelf();
 	}
