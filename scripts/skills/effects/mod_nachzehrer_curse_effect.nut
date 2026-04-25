@@ -44,57 +44,64 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 
 		if (this.m.TurnsLeft <= 0)
 		{
-			local self = this;
 			// Defer: removeFromMap() called synchronously here fires while TurnSequenceBar.m.IsLocked == true
 			// (set during onEntityEntersFirstSlot), causing initNextTurn to return early and stall the bar.
 			// Scheduling 1 virtual tick defers until after onEntityEnteredFirstSlotFully clears m.IsLocked.
-			this.Time.scheduleEvent(this.TimeUnit.Virtual, 1, function(_data) {
-				local cursed = self.getContainer().getActor();
-				local tile = cursed.getTile();
-
-				if (tile == null)
-				{
-					::logError("[mod_nachzehrer_curse] transform: cursed entity has no tile, aborting");
-					return;
-				}
-
-				::logInfo("[mod_nachzehrer_curse] Transforming " + cursed.getName() + " into Nachzehrer at (" + tile.Coords.X + ", " + tile.Coords.Y + ")");
-
-				local feastSounds = [
-					"sounds/enemies/gruesome_feast_01.wav",
-					"sounds/enemies/gruesome_feast_02.wav",
-					"sounds/enemies/gruesome_feast_03.wav",
-					"sounds/enemies/gruesome_feast_04.wav"
-				];
-				self.Sound.play(feastSounds[self.Math.rand(0, feastSounds.len() - 1)], self.Const.Sound.Volume.Skill, tile.Pos);
-
-				// Snapshot before removal
-				local sourceProps = cursed.getBaseProperties();
-				local sourceHp = cursed.getHitpoints();
-				local sourcePerks = cursed.getSkills().getAllSkillsOfType(self.Const.SkillType.Perk);
-				local sourceName = cursed.getName();
-
-				// Remove from turn bar BEFORE removeFromMap so no stale UI slot remains.
-				// removeFromMap does not call TurnSequenceBar.removeEntity, so we must do it manually.
-				self.Tactical.TurnSequenceBar.removeEntity(cursed);
-				cursed.m.IsAlive = false;
-				cursed.m.IsTurnDone = true;
-				cursed.removeFromMap();
-				::logInfo("[mod_nachzehrer_curse] Original entity removed from map and turn bar");
-
-				local ghoul = self.spawnGhoul(tile, sourceName, sourceProps, sourceHp, sourcePerks);
-
-				ghoul.m.IsActingImmediately = true;
-				self.Tactical.TurnSequenceBar.insertEntity(ghoul);
-				::logInfo("[mod_nachzehrer_curse] Nachzehrer inserted to act immediately");
-
-				self.removeSelf();
-			}, {});
+			// The closure only captures `self` and calls a proper method, because global singletons like
+			// Sound/Math/Const/Tactical are not reachable via delegate lookup on a free variable in a closure.
+			local self = this;
+			this.Time.scheduleEvent(this.TimeUnit.Virtual, 1, function(_data) { self.transform(); }, {});
 		}
+	}
+
+	function transform()
+	{
+		local cursed = this.getContainer().getActor();
+		local tile = cursed.getTile();
+
+		if (tile == null)
+		{
+			::logError("[mod_nachzehrer_curse] transform: cursed entity has no tile, aborting");
+			return;
+		}
+
+		::logInfo("[mod_nachzehrer_curse] Transforming " + cursed.getName() + " into Nachzehrer at (" + tile.Coords.X + ", " + tile.Coords.Y + ")");
+
+		local feastSounds = [
+			"sounds/enemies/gruesome_feast_01.wav",
+			"sounds/enemies/gruesome_feast_02.wav",
+			"sounds/enemies/gruesome_feast_03.wav",
+			"sounds/enemies/gruesome_feast_04.wav"
+		];
+		this.Sound.play(feastSounds[this.Math.rand(0, feastSounds.len() - 1)], this.Const.Sound.Volume.Skill, tile.Pos);
+
+		// Snapshot before removal
+		local sourceProps = cursed.getBaseProperties();
+		local sourceHp = cursed.getHitpoints();
+		local sourcePerks = cursed.getSkills().getAllSkillsOfType(this.Const.SkillType.Perk);
+		local sourceName = cursed.getName();
+
+		// Remove from turn bar BEFORE removeFromMap so no stale UI slot remains.
+		// removeFromMap does not call TurnSequenceBar.removeEntity internally.
+		this.Tactical.TurnSequenceBar.removeEntity(cursed);
+		cursed.m.IsAlive = false;
+		cursed.m.IsTurnDone = true;
+		cursed.removeFromMap();
+		::logInfo("[mod_nachzehrer_curse] Original entity removed from map and turn bar");
+
+		local ghoul = this.spawnGhoul(tile, sourceName, sourceProps, sourceHp, sourcePerks);
+
+		ghoul.m.IsActingImmediately = true;
+		this.Tactical.TurnSequenceBar.insertEntity(ghoul);
+		::logInfo("[mod_nachzehrer_curse] Nachzehrer inserted to act immediately");
+
+		this.removeSelf();
 	}
 
 	function spawnGhoul( _tile, _sourceName, _sourceProps, _sourceHp, _sourcePerks )
 	{
+		// spawnEntity auto-inserts the ghoul for next round; remove it before re-inserting
+		// with IsActingImmediately (caller's responsibility) to avoid a duplicate bar entry.
 		local ghoul = this.Tactical.spawnEntity("scripts/entity/tactical/enemies/ghoul", _tile.Coords.X, _tile.Coords.Y);
 		::logInfo("[mod_nachzehrer_curse] Nachzehrer spawned");
 
@@ -126,9 +133,6 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		this.inheritStats(ghoul, _sourceProps, _sourceHp);
 		this.inheritPerks(ghoul, _sourcePerks);
 		ghoul.getSkills().update();
-
-		// spawnEntity places the ghoul for next round; remove that slot before re-inserting
-		// with IsActingImmediately so the bar doesn't get a duplicate entry.
 		this.Tactical.TurnSequenceBar.removeEntity(ghoul);
 
 		return ghoul;
