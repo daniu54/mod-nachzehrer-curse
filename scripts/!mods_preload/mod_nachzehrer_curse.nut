@@ -17,6 +17,12 @@
 		"Enable Nachzehrer Curse perk tree",
 		"When enabled, the Nachzehrer Curse perk is added to the Preserver background. Disable to hide the mod's perks (requires a game restart to take effect)."
 	);
+	page.addBooleanSetting(
+		"RequireKnife",
+		true,
+		"Require knife/dagger",
+		"When enabled, the Cursed Knife skill requires a knife or dagger with remaining durability equipped in the mainhand. The weapon is consumed on use."
+	);
 
 	::logInfo("[mod_nachzehrer_curse] Registering Cursed Knife active");
 	::Legends.Actives.addActiveDefObjects([{

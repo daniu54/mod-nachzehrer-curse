@@ -4,7 +4,7 @@ this.mod_nachzehrer_curse_skill <- this.inherit("scripts/skills/skill", {
 	function create()
 	{
 		::Legends.Actives.onCreate(this, ::Legends.Active.ModNachzehrerCurse);
-		this.m.Description = "Stab a humanoid with a cursed blade to initiate their transformation into a Nachzehrer. Works on self, allies, and enemies. Against enemies, HP damage must be dealt for the curse to take hold — beasts and other non-humanoids are unaffected by the curse. The caster takes no damage when targeting themselves or allies.";
+		this.m.Description = "Imbue a knife with cursed unholy energy and plunge it into your target, initiating their transformation into a Nachzehrer. Works on self, allies, and enemies. Against enemies, HP damage must be dealt for the curse to take hold — beasts and other non-humanoids are unaffected. The caster takes no damage when targeting themselves or allies. The knife is consumed in the ritual.";
 		this.m.Icon = "skills/active_03.png";
 		this.m.IconDisabled = "skills/active_03_sw.png";
 		this.m.Overlay = "active_03";
@@ -36,6 +36,26 @@ this.mod_nachzehrer_curse_skill <- this.inherit("scripts/skills/skill", {
 		this.m.MaxRange = 1;
 	}
 
+	function getEquippedDagger()
+	{
+		local actor = this.getContainer().getActor();
+		local mainhand = actor.getItems().getItemAtSlot(this.Const.ItemSlot.Mainhand);
+		if (mainhand == null || mainhand.isNull()) return null;
+		if (mainhand.getCategories().find("Dagger") == null) return null;
+		if (mainhand.m.Condition <= 0) return null;
+		return mainhand;
+	}
+
+	function isUsable()
+	{
+		if (!this.skill.isUsable()) return false;
+		if (::ModNachzehrerCurse.Mod.ModSettings.getSetting("RequireKnife").getValue())
+		{
+			return this.getEquippedDagger() != null;
+		}
+		return true;
+	}
+
 	function getTooltip()
 	{
 		local ret = this.getDefaultTooltip();
@@ -45,6 +65,15 @@ this.mod_nachzehrer_curse_skill <- this.inherit("scripts/skills/skill", {
 			icon = "ui/icons/special.png",
 			text = "Transforms the target into a Nachzehrer. Against enemies: HP damage must be dealt and target must be humanoid."
 		});
+		if (::ModNachzehrerCurse.Mod.ModSettings.getSetting("RequireKnife").getValue() && this.getEquippedDagger() == null)
+		{
+			ret.push({
+				id = 12,
+				type = "text",
+				icon = "ui/icons/special.png",
+				text = "[color=" + this.Const.UI.Color.NegativeValue + "]Requires a knife or dagger with durability remaining equipped in the mainhand.[/color]"
+			});
+		}
 		return ret;
 	}
 
@@ -67,9 +96,18 @@ this.mod_nachzehrer_curse_skill <- this.inherit("scripts/skills/skill", {
 
 	function onUse( _user, _targetTile )
 	{
+		if (::ModNachzehrerCurse.Mod.ModSettings.getSetting("RequireKnife").getValue())
+		{
+			local knife = this.getEquippedDagger();
+			if (knife != null)
+			{
+				knife.lowerCondition(knife.m.Condition);
+				::logInfo("[mod_nachzehrer_curse] Knife consumed: " + knife.getName());
+			}
+		}
+
 		local target = _targetTile.getEntity();
 
-		// Detect relationship between user and target
 		local relation = this.getRelation(_user, target);
 		::logInfo("[mod_nachzehrer_curse] onUse: user=" + _user.getName() + " target=" + target.getName() + " relation=" + relation);
 
