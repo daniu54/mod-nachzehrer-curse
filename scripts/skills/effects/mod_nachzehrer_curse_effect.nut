@@ -13,9 +13,9 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		this.m.ID = "effects.mod_nachzehrer_curse";
 		this.m.Name = "Nachzehrer Curse";
 		this.m.Description = "This character has been cursed with the nachzehrer's affliction and will transform into a ghoul.";
-		this.m.Icon = "skills/status_effect_39.png";
-		this.m.IconMini = "status_effect_39_mini";
-		this.m.Overlay = "status_effect_39";
+		this.m.Icon = "skills/status_effect_72.png";
+		this.m.IconMini = "status_effect_72_mini";
+		this.m.Overlay = "status_effect_72";
 		this.m.Type = this.Const.SkillType.StatusEffect;
 		this.m.IsActive = false;
 		this.m.IsStacking = false;
@@ -44,7 +44,12 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 
 		if (this.m.TurnsLeft <= 0)
 		{
-			this.transform();
+			// Defer transform: calling removeFromMap() synchronously here would fire inside
+			// onEntityEntersFirstSlot while m.IsLocked==true, causing initNextTurn(true) to
+			// return early and leaving the entity stuck in CurrentEntities[0] forever.
+			// Scheduling defers until after onEntityEnteredFirstSlotFully clears m.IsLocked.
+			local self = this;
+			this.Time.scheduleEvent(this.TimeUnit.Virtual, 1, function(_data) { self.transform(); }, {});
 		}
 	}
 
@@ -75,57 +80,17 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		local sourceHp = cursed.getHitpoints();
 		local sourcePerks = cursed.getSkills().getAllSkillsOfType(this.Const.SkillType.Perk);
 
-		// Remove the original entity from the map (no death event, no loot drop)
+		// Mark dead and turn-done before removing so the turn sequence bar's isAlive() check
+		// in onEntityEntersFirstSlot returns false gracefully instead of trying to render a removed entity.
+		cursed.m.IsAlive = false;
+		cursed.m.IsTurnDone = true;
 		cursed.removeFromMap();
 		::logInfo("[mod_nachzehrer_curse] Original entity removed from map");
 
-		// Spawn the nachzehrer at the same tile
+		// Spawn the nachzehrer at the same tile.
+		// this.Tactical is the global tactical singleton inherited from skill base class.
 		local ghoul = this.Tactical.spawnEntity("scripts/entity/tactical/enemies/ghoul", tile.Coords.X, tile.Coords.Y);
 		::logInfo("[mod_nachzehrer_curse] Nachzehrer spawned");
-
-		// Configure faction and player control based on the curse's stored faction
-		if (this.m.GhoulFaction == "player")
-		{
-			ghoul.setFaction(this.Const.Faction.Player);
-			ghoul.m.IsControlledByPlayer = true;
-			ghoul.setName("Cursed " + cursed.getName());
-			ghoul.getSprite("body").setHorizontalFlipping(true);
-			ghoul.getSprite("head").setHorizontalFlipping(true);
-			::logInfo("[mod_nachzehrer_curse] Ghoul set as player-controlled");
-		}
-		else if (this.m.GhoulFaction == "player_animal")
-		{
-			ghoul.setFaction(this.Const.Faction.PlayerAnimals);
-			ghoul.setName("Cursed " + cursed.getName());
-			ghoul.getSprite("body").setHorizontalFlipping(true);
-			ghoul.getSprite("head").setHorizontalFlipping(true);
-			::logInfo("[mod_nachzehrer_curse] Ghoul set as friendly AI (PlayerAnimals)");
-		}
-		else
-		{
-			// Enemy: use Undead faction (nachzehrer's native faction)
-			ghoul.setFaction(this.Const.Faction.Undead);
-			ghoul.setName("Cursed " + cursed.getName());
-			// Enemy nachzehrer faces left (default), no flip needed
-			::logInfo("[mod_nachzehrer_curse] Ghoul set as enemy (Undead)");
-		}
-
-		ghoul.setMoraleState(this.Const.MoraleState.Confident);
-
-		// Inherit stats: take the better value for each stat field
-		this.inheritStats(ghoul, sourceProps, sourceHp);
-
-		// Inherit perks from the original entity
-		this.inheritPerks(ghoul, sourcePerks);
-
-		// Force skills update so stat changes take effect
-		ghoul.getSkills().update();
-
-		// Make the ghoul act immediately this round (same pattern as wardog unleash / summon skill)
-		this.Tactical.TurnSequenceBar.removeEntity(ghoul);
-		ghoul.m.IsActingImmediately = true;
-		this.Tactical.TurnSequenceBar.insertEntity(ghoul);
-		::logInfo("[mod_nachzehrer_curse] Nachzehrer inserted to act immediately");
 
 		// Remove this effect from the (now off-map) entity's container
 		this.removeSelf();
