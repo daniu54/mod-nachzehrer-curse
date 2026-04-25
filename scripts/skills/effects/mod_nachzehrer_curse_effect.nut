@@ -5,7 +5,8 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		// "player"        -> player-controlled (Faction.Player + IsControlledByPlayer)
 		// "player_animal" -> ai-friendly (Faction.PlayerAnimals)
 		// "undead"        -> hostile enemy (Faction.Undead)
-		GhoulFaction = "undead"
+		GhoulFaction = "undead",
+		TransformPending = false
 	},
 
 	function create()
@@ -44,14 +45,32 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 
 		if (this.m.TurnsLeft <= 0)
 		{
-			// Defer: removeFromMap() called synchronously here fires while TurnSequenceBar.m.IsLocked == true
-			// (set during onEntityEntersFirstSlot), causing initNextTurn to return early and stall the bar.
-			// Scheduling 1 virtual tick defers until after onEntityEnteredFirstSlotFully clears m.IsLocked.
-			// The closure only captures `self` and calls a proper method, because global singletons like
-			// Sound/Math/Const/Tactical are not reachable via delegate lookup on a free variable in a closure.
-			local self = this;
-			this.Time.scheduleEvent(this.TimeUnit.Virtual, 1, function(_data) { self.transform(); }, {});
+			// Flag here so the sound plays at turn start, but do not remove from map yet.
+			// removeFromMap + TurnSequenceBar.removeEntity are only safe AFTER onTurnEnd,
+			// once the bar has finished processing this entity as the current actor.
+			this.m.TransformPending = true;
+			local feastSounds = [
+				"sounds/enemies/gruesome_feast_01.wav",
+				"sounds/enemies/gruesome_feast_02.wav",
+				"sounds/enemies/gruesome_feast_03.wav",
+				"sounds/enemies/gruesome_feast_04.wav"
+			];
+			local tile = this.getContainer().getActor().getTile();
+			if (tile != null)
+			{
+				this.Sound.play(feastSounds[this.Math.rand(0, feastSounds.len() - 1)], this.Const.Sound.Volume.Skill, tile.Pos);
+			}
 		}
+	}
+
+	function onTurnEnd()
+	{
+		if (!this.m.TransformPending) return;
+		this.m.TransformPending = false;
+		// Schedule one virtual tick after onTurnEnd so the turn bar has handed off the
+		// current slot before we remove the entity and manipulate the bar.
+		local self = this;
+		this.Time.scheduleEvent(this.TimeUnit.Virtual, 1, function(_data) { self.transform(); }, {});
 	}
 
 	function transform()
@@ -66,14 +85,6 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		}
 
 		::logInfo("[mod_nachzehrer_curse] Transforming " + cursed.getName() + " into Nachzehrer at (" + tile.Coords.X + ", " + tile.Coords.Y + ")");
-
-		local feastSounds = [
-			"sounds/enemies/gruesome_feast_01.wav",
-			"sounds/enemies/gruesome_feast_02.wav",
-			"sounds/enemies/gruesome_feast_03.wav",
-			"sounds/enemies/gruesome_feast_04.wav"
-		];
-		this.Sound.play(feastSounds[this.Math.rand(0, feastSounds.len() - 1)], this.Const.Sound.Volume.Skill, tile.Pos);
 
 		// Snapshot before removal
 		local sourceProps = cursed.getBaseProperties();
