@@ -102,7 +102,6 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 
 		local ghoul = this.spawnGhoul(tile, sourceName, sourceProps, sourceHp, sourcePerks);
 
-		ghoul.m.IsActingImmediately = true;
 		this.Tactical.TurnSequenceBar.insertEntity(ghoul);
 		::logInfo("[mod_nachzehrer_curse] Nachzehrer inserted to act immediately");
 
@@ -144,7 +143,6 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		this.inheritStats(ghoul, _sourceProps, _sourceHp);
 		this.inheritPerks(ghoul, _sourcePerks);
 		ghoul.getSkills().update();
-		this.Tactical.TurnSequenceBar.removeEntity(ghoul);
 
 		return ghoul;
 	}

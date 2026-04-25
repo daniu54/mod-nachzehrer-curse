@@ -40,7 +40,7 @@ this.mod_nachzehrer_curse_skill <- this.inherit("scripts/skills/skill", {
 	{
 		local actor = this.getContainer().getActor();
 		local mainhand = actor.getItems().getItemAtSlot(this.Const.ItemSlot.Mainhand);
-		if (mainhand == null || mainhand.isNull()) return null;
+		if (mainhand == null) return null;
 		if (mainhand.getCategories().find("Dagger") == null) return null;
 		if (mainhand.m.Condition <= 0) return null;
 		return mainhand;
