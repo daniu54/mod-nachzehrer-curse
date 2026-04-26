@@ -57,22 +57,26 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		local cursed = this.getContainer().getActor();
 		::logInfo("[mod_nachzehrer_curse] Transforming " + cursed.getName() + " (sprite swap)");
 
-		local savedState = this.captureState(cursed);
+		// Snapshot the entity's current visual and audio state before making any changes.
+		// BB does NOT auto-reset sprite visibility, scale, brush, or added skills after
+		// combat — we must restore everything manually via mod_nachzehrer_transformed_effect.
+		local preTransformState = this.capturePreTransformState(cursed);
 
-		this.hideEquipment(cursed);
-		this.swapSprites(cursed);
+		this.hideAllSprites(cursed);
+		this.swapSpritesToGhoul(cursed);
 		this.swapSounds(cursed);
 		this.addGhoulSkills(cursed);
 		this.assignGhoulAI(cursed);
 
+		// Attach the revert skill so it can undo the transformation when combat ends.
 		try
 		{
-			local revertEffect = this.new("scripts/skills/effects/mod_nachzehrer_transformed_effect");
-			revertEffect.setSavedState(savedState);
-			cursed.getSkills().add(revertEffect);
-			::logInfo("[mod_nachzehrer_curse] Revert effect added to " + cursed.getName());
+			local revertSkill = this.new("scripts/skills/effects/mod_nachzehrer_transformed_effect");
+			revertSkill.setPreTransformState(preTransformState);
+			cursed.getSkills().add(revertSkill);
+			::logInfo("[mod_nachzehrer_curse] Revert skill attached to " + cursed.getName());
 		}
-		catch (e) { ::logInfo("[mod_nachzehrer_curse] Failed to add revert effect: " + e); }
+		catch (e) { ::logInfo("[mod_nachzehrer_curse] Failed to attach revert skill: " + e); }
 
 		try { cursed.setDirty(true); } catch (e) {}
 
@@ -80,73 +84,82 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		this.removeSelf();
 	}
 
-	function captureState( _cursed )
+	// Captures a complete snapshot of everything that transformation will change.
+	// BB never resets sprite state or added skills at battle end — this snapshot
+	// is the only record of what the entity looked like before the transformation.
+	function capturePreTransformState( _cursed )
 	{
 		local state = {
-			Armor           = "",
-			ArmorUpgradeFront = "",
-			ArmorUpgradeBack  = "",
-			Accessory       = "",
-			Helmet          = "",
-			HelmetDamage    = "",
-			SocketBrush     = "",
-			BodyBrush       = "",
-			BodySaturation  = 1.0,
-			BodyColor       = 0xFFFFFF,
-			HeadBrush       = "",
-			HeadSaturation  = 1.0,
-			HeadColor       = 0xFFFFFF,
-			InjuryBrush     = "",
-			HiddenSpritesVisible = {},
-			SoundDamage     = [],
-			SoundDeath      = [],
-			SoundFlee       = [],
-			SoundIdle       = []
+			// Per-sprite snapshot: Visible, Scale, and (for brush-swapped layers) Brush/Saturation/Color.
+			Sprites = {},
+			// Items appearance fields drive the armor/helmet/accessory sprite brushes via updateAppearance().
+			// We capture them here so the equipment visuals can be fully restored after battle.
+			AppArmor             = "",
+			AppArmorUpgradeFront = "",
+			AppArmorUpgradeBack  = "",
+			AppAccessory         = "",
+			AppHelmet            = "",
+			AppHelmetDamage      = "",
+			// Sound arrays for the four events we overwrite during transformation.
+			SoundDamage = [],
+			SoundDeath  = [],
+			SoundFlee   = [],
+			SoundIdle   = []
 		};
 
+		// Capture every known human entity sprite. We log each one found so the developer
+		// can verify which sprites are live on the entity at transformation time.
+		local allHumanSpriteNames = [
+			"background", "socket", "quiver",
+			"body", "tattoo_body", "scar_body", "injury_body",
+			"armor", "surcoat", "armor_upgrade_back", "armor_upgrade_front",
+			"bandage_1", "bandage_2", "bandage_3",
+			"shaft",
+			"head", "eye_rings", "closed_eyes", "tattoo_head", "scar_head",
+			"injury",
+			"permanent_injury_1", "permanent_injury_2", "permanent_injury_3", "permanent_injury_4",
+			"beard", "beard_top", "hair",
+			"helmet", "helmet_damage",
+			"accessory", "accessory_special",
+			"body_blood", "dirt"
+		];
+
+		// Sprites whose brush we swap during transformation need full brush/color capture.
+		local brushSwappedSprites = ["socket", "body", "head", "injury"];
+
+		foreach (name in allHumanSpriteNames)
+		{
+			try
+			{
+				local s = _cursed.getSprite(name);
+				local entry = { Visible = s.Visible, Scale = s.Scale };
+				if (brushSwappedSprites.find(name) != null)
+				{
+					entry.Brush      <- s.getBrush().Name;
+					entry.Saturation <- s.Saturation;
+					entry.Color      <- s.Color;
+				}
+				state.Sprites[name] <- entry;
+				::logInfo("[mod_nachzehrer_curse] captureState: sprite '" + name + "' Visible=" + s.Visible + " Scale=" + s.Scale);
+			}
+			catch (e) {}
+		}
+
+		// Appearance
 		try
 		{
 			local app = _cursed.getItems().getAppearance();
-			state.Armor             = app.Armor;
-			state.ArmorUpgradeFront = app.ArmorUpgradeFront;
-			state.ArmorUpgradeBack  = app.ArmorUpgradeBack;
-			state.Accessory         = app.Accessory;
-			state.Helmet            = app.Helmet;
-			state.HelmetDamage      = app.HelmetDamage;
-			::logInfo("[mod_nachzehrer_curse] captureState: Armor=" + state.Armor + " Helmet=" + state.Helmet);
+			state.AppArmor             = app.Armor;
+			state.AppArmorUpgradeFront = app.ArmorUpgradeFront;
+			state.AppArmorUpgradeBack  = app.ArmorUpgradeBack;
+			state.AppAccessory         = app.Accessory;
+			state.AppHelmet            = app.Helmet;
+			state.AppHelmetDamage      = app.HelmetDamage;
+			::logInfo("[mod_nachzehrer_curse] captureState: Armor='" + state.AppArmor + "' Helmet='" + state.AppHelmet + "'");
 		}
 		catch (e) { ::logInfo("[mod_nachzehrer_curse] captureState: appearance failed: " + e); }
 
-		try { state.SocketBrush = _cursed.getSprite("socket").getBrush().Name; } catch (e) {}
-
-		try
-		{
-			local body = _cursed.getSprite("body");
-			state.BodyBrush      = body.getBrush().Name;
-			state.BodySaturation = body.Saturation;
-			state.BodyColor      = body.Color;
-			::logInfo("[mod_nachzehrer_curse] captureState: BodyBrush=" + state.BodyBrush);
-		}
-		catch (e) { ::logInfo("[mod_nachzehrer_curse] captureState: body failed: " + e); }
-
-		try
-		{
-			local head = _cursed.getSprite("head");
-			state.HeadBrush      = head.getBrush().Name;
-			state.HeadSaturation = head.Saturation;
-			state.HeadColor      = head.Color;
-			::logInfo("[mod_nachzehrer_curse] captureState: HeadBrush=" + state.HeadBrush);
-		}
-		catch (e) { ::logInfo("[mod_nachzehrer_curse] captureState: head failed: " + e); }
-
-		try { state.InjuryBrush = _cursed.getSprite("injury").getBrush().Name; } catch (e) {}
-
-		foreach (name in ["hair", "beard", "beard_top", "eye_rings", "closed_eyes"])
-		{
-			try { state.HiddenSpritesVisible[name] <- _cursed.getSprite(name).Visible; } catch (e) {}
-		}
-		::logInfo("[mod_nachzehrer_curse] captureState: HiddenSpritesVisible captured");
-
+		// Sounds
 		try { state.SoundDamage = _cursed.m.Sound[this.Const.Sound.ActorEvent.DamageReceived]; } catch (e) {}
 		try { state.SoundDeath  = _cursed.m.Sound[this.Const.Sound.ActorEvent.Death]; } catch (e) {}
 		try { state.SoundFlee   = _cursed.m.Sound[this.Const.Sound.ActorEvent.Flee]; } catch (e) {}
@@ -156,13 +169,46 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		return state;
 	}
 
-	function hideEquipment( _cursed )
+	// Hide every sprite layer on the entity before applying ghoul visuals.
+	// Weapon items are managed by the items system and are not sprite layers, so they
+	// are excluded automatically. Both Visible and Scale are set so the sprites stay
+	// suppressed even if the game resets Visible on turn transitions.
+	function hideAllSprites( _cursed )
 	{
-		foreach (name in ["armor", "helmet", "helmet_damage", "surcoat"])
+		local allHumanSpriteNames = [
+			"background", "socket", "quiver",
+			"body", "tattoo_body", "scar_body", "injury_body",
+			"armor", "surcoat", "armor_upgrade_back", "armor_upgrade_front",
+			"bandage_1", "bandage_2", "bandage_3",
+			"shaft",
+			"head", "eye_rings", "closed_eyes", "tattoo_head", "scar_head",
+			"injury",
+			"permanent_injury_1", "permanent_injury_2", "permanent_injury_3", "permanent_injury_4",
+			"beard", "beard_top", "hair",
+			"helmet", "helmet_damage",
+			"accessory", "accessory_special",
+			"body_blood", "dirt"
+		];
+
+		local hiddenNames = [];
+		foreach (name in allHumanSpriteNames)
 		{
-			try { _cursed.getSprite(name).Visible = false; }
-			catch (e) { ::logInfo("[mod_nachzehrer_curse] hideEquipment: " + name + " sprite not found"); }
+			try
+			{
+				local s = _cursed.getSprite(name);
+				s.Visible = false;
+				s.Scale = 0.001;
+				hiddenNames.push(name);
+			}
+			catch (e) {}
 		}
+
+		local joined = "";
+		foreach (n in hiddenNames) { joined += n + " "; }
+		::logInfo("[mod_nachzehrer_curse] hideAllSprites: suppressed " + hiddenNames.len() + " sprites: [" + joined + "]");
+
+		// Force a visual refresh so the changes take effect immediately.
+		try { _cursed.setDirty(true); } catch (e) {}
 	}
 
 	// For non-player-controlled entities, replace the AI agent with the ghoul agent
@@ -181,10 +227,19 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		catch (e) { ::logInfo("[mod_nachzehrer_curse] AI agent assignment failed: " + e); }
 	}
 
-	function swapSprites( _cursed )
+	// Apply ghoul brushes to the relevant sprite layers, then make only those layers
+	// visible. All other layers were suppressed by hideAllSprites().
+	function swapSpritesToGhoul( _cursed )
 	{
-		// Base socket
-		try { _cursed.getSprite("socket").setBrush("bust_base_beasts"); } catch (e) { ::logInfo("[mod_nachzehrer_curse] socket swap failed: " + e); }
+		// Socket (base backing sprite)
+		try
+		{
+			local s = _cursed.getSprite("socket");
+			s.setBrush("bust_base_beasts");
+			s.Visible = true;
+			s.Scale = 1.0;
+		}
+		catch (e) { ::logInfo("[mod_nachzehrer_curse] socket swap failed: " + e); }
 
 		// Body
 		try
@@ -193,6 +248,8 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 			body.setBrush("bust_ghoul_body_01");
 			body.varySaturation(0.25);
 			body.varyColor(0.06, 0.06, 0.06);
+			body.Visible = true;
+			body.Scale = 1.0;
 		}
 		catch (e) { ::logInfo("[mod_nachzehrer_curse] body swap failed: " + e); }
 
@@ -204,22 +261,18 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 			head.setBrush("bust_ghoul_head_01");
 			head.Saturation = body.Saturation;
 			head.Color = body.Color;
+			head.Visible = true;
+			head.Scale = 1.0;
 		}
 		catch (e) { ::logInfo("[mod_nachzehrer_curse] head swap failed: " + e); }
 
-		// Injury — update brush so it shows the ghoul injury art when triggered
+		// Injury — swap brush but keep hidden; the engine shows it automatically when injured
 		try { _cursed.getSprite("injury").setBrush("bust_ghoul_01_injured"); } catch (e) {}
 
-		// Hide human-specific visual layers
-		foreach (name in ["hair", "beard", "beard_top", "eye_rings", "closed_eyes"])
-		{
-			try { _cursed.getSprite(name).Visible = false; } catch (e) {}
-		}
-
 		// Re-apply correct horizontal flip after setBrush resets it.
-		// Allied entities (player side, facing right) need flip=false;
-		// enemy entities need flip=true. The user-visible issue was that
-		// allied bros showed the ghoul sprite facing the wrong direction.
+		// Allied entities (player side, facing right) get flip=false;
+		// enemy entities get flip=true. Without this, ghoul sprites on player bros
+		// appear facing the wrong direction.
 		try
 		{
 			local flip = !_cursed.isAlliedWithPlayer();
@@ -229,7 +282,7 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 			{
 				try { _cursed.getSprite(name).setHorizontalFlipping(flip); } catch (e) {}
 			}
-			::logInfo("[mod_nachzehrer_curse] Sprite flip set to " + flip + " for " + _cursed.getName());
+			::logInfo("[mod_nachzehrer_curse] swapSpritesToGhoul: flip=" + flip + " for " + _cursed.getName());
 		}
 		catch (e) { ::logInfo("[mod_nachzehrer_curse] flipSprites failed: " + e); }
 	}
