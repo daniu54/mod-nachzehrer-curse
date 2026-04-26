@@ -33,12 +33,14 @@
 	}]);
 
 	::logInfo("[mod_nachzehrer_curse] Registering Nachzehrer Curse perk");
+	::Const.Strings.PerkName.ModNachzehrerCurse <- "Nachzehrer Curse";
+	::Const.Strings.PerkDescription.ModNachzehrerCurse <- "You have learned to transfer the nachzehrer curse through a blade. You can stab any humanoid to initiate their transformation into a nachzehrer.";
 	::Const.Perks.addPerkDefObjects([{
 		ID = "perk.mod_nachzehrer_curse",
 		Script = "scripts/skills/perks/perk_mod_nachzehrer_curse",
 		Const = "ModNachzehrerCurse",
 		Name = "Nachzehrer Curse",
-		Tooltip = "You have learned to transfer the nachzehrer curse through a blade. You can stab any humanoid to initiate their transformation into a nachzehrer.",
+		Tooltip = ::Const.Strings.PerkDescription.ModNachzehrerCurse,
 		Icon = "ui/perks/favoured_ghoul_01.png",
 		IconDisabled = "ui/perks/favoured_ghoul_bw.png",
 	}]);
