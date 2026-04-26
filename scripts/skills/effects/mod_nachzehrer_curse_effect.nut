@@ -67,11 +67,28 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		this.swapSprites(cursed);
 		this.swapSounds(cursed);
 		this.addGhoulSkills(cursed);
+		this.assignGhoulAI(cursed);
 
 		try { cursed.setDirty(true); } catch (e) {}
 
 		::logInfo("[mod_nachzehrer_curse] " + cursed.getName() + " transformation complete");
 		this.removeSelf();
+	}
+
+	// For non-player-controlled entities, replace the AI agent with the ghoul agent
+	// so the entity fights like a ghoul (pathfinding, target priority, skill usage).
+	function assignGhoulAI( _cursed )
+	{
+		if (_cursed.m.IsControlledByPlayer) return;
+
+		try
+		{
+			local agent = this.new("scripts/ai/tactical/agents/ghoul_agent");
+			agent.setActor(_cursed);
+			_cursed.m.AIAgent = agent;
+			::logInfo("[mod_nachzehrer_curse] Ghoul AI agent assigned to " + _cursed.getName());
+		}
+		catch (e) { ::logInfo("[mod_nachzehrer_curse] AI agent assignment failed: " + e); }
 	}
 
 	function swapSprites( _cursed )
