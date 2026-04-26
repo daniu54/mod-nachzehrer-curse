@@ -81,22 +81,10 @@ this.mod_nachzehrer_transformed_effect <- this.inherit("scripts/skills/skill", {
 		}
 
 		// --- Appearance ---
-		// Restoring appearance fields and calling updateAppearance() re-drives the armor,
-		// helmet, and accessory sprite brushes from the items system. Without this the
-		// equipment sprite layers would be blank even though we restored their Visible/Scale.
-		try
-		{
-			local app = _actor.getItems().getAppearance();
-			app.Armor             = state.AppArmor;
-			app.ArmorUpgradeFront = state.AppArmorUpgradeFront;
-			app.ArmorUpgradeBack  = state.AppArmorUpgradeBack;
-			app.Accessory         = state.AppAccessory;
-			app.Helmet            = state.AppHelmet;
-			app.HelmetDamage      = state.AppHelmetDamage;
-			_actor.getItems().updateAppearance();
-			::logInfo("[mod_nachzehrer_curse] undoTransformation: appearance restored (Armor='" + state.AppArmor + "' Helmet='" + state.AppHelmet + "')");
-		}
-		catch (e) { ::logInfo("[mod_nachzehrer_curse] undoTransformation: appearance restore failed: " + e); }
+		// Re-drives armor/helmet/accessory sprite brushes from the items system.
+		// Delegates to AppearanceHelper which also calls updateAppearance() on Legends items
+		// to regenerate all layer fields (ArmorLayerChain, HelmetLayerHelm, etc.).
+		::ModNachzehrerCurse.AppearanceHelper.restoreState(_actor, state);
 
 		// Re-apply correct horizontal flip after the brush restores above may have reset it.
 		try

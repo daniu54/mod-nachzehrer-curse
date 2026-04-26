@@ -62,6 +62,7 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		// combat — we must restore everything manually via mod_nachzehrer_transformed_effect.
 		local preTransformState = this.capturePreTransformState(cursed);
 
+		::ModNachzehrerCurse.AppearanceHelper.hideEquipment(cursed);
 		this.hideAllSprites(cursed);
 		this.swapSpritesToGhoul(cursed);
 		this.swapSounds(cursed);
@@ -92,19 +93,12 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		local state = {
 			// Per-sprite snapshot: Visible, Scale, and (for brush-swapped layers) Brush/Saturation/Color.
 			Sprites = {},
-			// Items appearance fields drive the armor/helmet/accessory sprite brushes via updateAppearance().
-			// We capture them here so the equipment visuals can be fully restored after battle.
-			AppArmor             = "",
-			AppArmorUpgradeFront = "",
-			AppArmorUpgradeBack  = "",
-			AppAccessory         = "",
-			AppHelmet            = "",
-			AppHelmetDamage      = "",
 			// Sound arrays for the four events we overwrite during transformation.
 			SoundDamage = [],
 			SoundDeath  = [],
 			SoundFlee   = [],
 			SoundIdle   = []
+			// Appearance fields are merged in below via AppearanceHelper.captureState().
 		};
 
 		// Capture every known human entity sprite. We log each one found so the developer
@@ -145,19 +139,9 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 			catch (e) {}
 		}
 
-		// Appearance
-		try
-		{
-			local app = _cursed.getItems().getAppearance();
-			state.AppArmor             = app.Armor;
-			state.AppArmorUpgradeFront = app.ArmorUpgradeFront;
-			state.AppArmorUpgradeBack  = app.ArmorUpgradeBack;
-			state.AppAccessory         = app.Accessory;
-			state.AppHelmet            = app.Helmet;
-			state.AppHelmetDamage      = app.HelmetDamage;
-			::logInfo("[mod_nachzehrer_curse] captureState: Armor='" + state.AppArmor + "' Helmet='" + state.AppHelmet + "'");
-		}
-		catch (e) { ::logInfo("[mod_nachzehrer_curse] captureState: appearance failed: " + e); }
+		// Appearance — delegated to AppearanceHelper (handles Legends layer fields and item refs)
+		local appState = ::ModNachzehrerCurse.AppearanceHelper.captureState(_cursed);
+		foreach (k, v in appState) { state[k] <- v; }
 
 		// Sounds
 		try { state.SoundDamage = _cursed.m.Sound[this.Const.Sound.ActorEvent.DamageReceived]; } catch (e) {}
