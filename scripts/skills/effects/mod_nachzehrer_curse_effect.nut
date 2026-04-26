@@ -57,6 +57,7 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		local cursed = this.getContainer().getActor();
 		::logInfo("[mod_nachzehrer_curse] Transforming " + cursed.getName() + " (sprite swap)");
 
+		this.patchGhoulMethods(cursed);
 		this.swapSprites(cursed);
 		this.swapSounds(cursed);
 		this.addGhoulSkills(cursed);
@@ -66,6 +67,18 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 
 		::logInfo("[mod_nachzehrer_curse] " + cursed.getName() + " transformation complete");
 		this.removeSelf();
+	}
+
+	// Inject ghoul-specific methods that skills like ghoul_claws expect on the actor.
+	// Squirrel tables allow new slots at runtime, so we add getSize() directly to the
+	// entity table. Returns 1 (base ghoul size) since the entity never ate to grow.
+	function patchGhoulMethods( _cursed )
+	{
+		if (!("getSize" in _cursed))
+		{
+			_cursed.getSize <- function() { return 1; };
+			::logInfo("[mod_nachzehrer_curse] getSize patched onto " + _cursed.getName());
+		}
 	}
 
 	// For non-player-controlled entities, replace the AI agent with the ghoul agent
