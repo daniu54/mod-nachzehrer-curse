@@ -57,7 +57,6 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		local cursed = this.getContainer().getActor();
 		::logInfo("[mod_nachzehrer_curse] Transforming " + cursed.getName() + " (sprite swap)");
 
-		this.patchGhoulMethods(cursed);
 		this.hideEquipment(cursed);
 		this.swapSprites(cursed);
 		this.swapSounds(cursed);
@@ -88,18 +87,6 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		catch (e) { ::logInfo("[mod_nachzehrer_curse] hideEquipment appearance clear failed: " + e); }
 
 		try { _cursed.getSprite("surcoat").Visible = false; } catch (e) {}
-	}
-
-	// Inject ghoul-specific methods that skills like ghoul_claws expect on the actor.
-	// Squirrel tables allow new slots at runtime, so we add getSize() directly to the
-	// entity table. Returns 1 (base ghoul size) since the entity never ate to grow.
-	function patchGhoulMethods( _cursed )
-	{
-		if (!("getSize" in _cursed))
-		{
-			_cursed.getSize <- function() { return 1; };
-			::logInfo("[mod_nachzehrer_curse] getSize patched onto " + _cursed.getName());
-		}
 	}
 
 	// For non-player-controlled entities, replace the AI agent with the ghoul agent
@@ -226,7 +213,7 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 	function addGhoulSkills( _cursed )
 	{
 		try { _cursed.m.Skills.add(this.new("scripts/skills/perks/perk_pathfinder")); } catch (e) { ::logInfo("[mod_nachzehrer_curse] perk_pathfinder failed: " + e); }
-		try { _cursed.m.Skills.add(this.new("scripts/skills/actives/ghoul_claws")); } catch (e) { ::logInfo("[mod_nachzehrer_curse] ghoul_claws failed: " + e); }
+		try { _cursed.m.Skills.add(this.new("scripts/skills/actives/mod_nachzehrer_ghoul_claws")); } catch (e) { ::logInfo("[mod_nachzehrer_curse] mod_nachzehrer_ghoul_claws failed: " + e); }
 		_cursed.m.Skills.update();
 	}
 
