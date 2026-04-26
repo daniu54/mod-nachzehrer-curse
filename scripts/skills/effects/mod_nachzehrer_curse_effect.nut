@@ -57,16 +57,103 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		local cursed = this.getContainer().getActor();
 		::logInfo("[mod_nachzehrer_curse] Transforming " + cursed.getName() + " (sprite swap)");
 
+		local savedState = this.captureState(cursed);
+
 		this.hideEquipment(cursed);
 		this.swapSprites(cursed);
 		this.swapSounds(cursed);
 		this.addGhoulSkills(cursed);
 		this.assignGhoulAI(cursed);
 
+		try
+		{
+			local revertEffect = this.new("scripts/skills/effects/mod_nachzehrer_transformed_effect");
+			revertEffect.setSavedState(savedState);
+			cursed.getSkills().add(revertEffect);
+			::logInfo("[mod_nachzehrer_curse] Revert effect added to " + cursed.getName());
+		}
+		catch (e) { ::logInfo("[mod_nachzehrer_curse] Failed to add revert effect: " + e); }
+
 		try { cursed.setDirty(true); } catch (e) {}
 
 		::logInfo("[mod_nachzehrer_curse] " + cursed.getName() + " transformation complete");
 		this.removeSelf();
+	}
+
+	function captureState( _cursed )
+	{
+		local state = {
+			Armor           = "",
+			ArmorUpgradeFront = "",
+			ArmorUpgradeBack  = "",
+			Accessory       = "",
+			Helmet          = "",
+			HelmetDamage    = "",
+			SocketBrush     = "",
+			BodyBrush       = "",
+			BodySaturation  = 1.0,
+			BodyColor       = 0xFFFFFF,
+			HeadBrush       = "",
+			HeadSaturation  = 1.0,
+			HeadColor       = 0xFFFFFF,
+			InjuryBrush     = "",
+			HiddenSpritesVisible = {},
+			SoundDamage     = [],
+			SoundDeath      = [],
+			SoundFlee       = [],
+			SoundIdle       = []
+		};
+
+		try
+		{
+			local app = _cursed.getItems().getAppearance();
+			state.Armor             = app.Armor;
+			state.ArmorUpgradeFront = app.ArmorUpgradeFront;
+			state.ArmorUpgradeBack  = app.ArmorUpgradeBack;
+			state.Accessory         = app.Accessory;
+			state.Helmet            = app.Helmet;
+			state.HelmetDamage      = app.HelmetDamage;
+			::logInfo("[mod_nachzehrer_curse] captureState: Armor=" + state.Armor + " Helmet=" + state.Helmet);
+		}
+		catch (e) { ::logInfo("[mod_nachzehrer_curse] captureState: appearance failed: " + e); }
+
+		try { state.SocketBrush = _cursed.getSprite("socket").getBrush().Name; } catch (e) {}
+
+		try
+		{
+			local body = _cursed.getSprite("body");
+			state.BodyBrush      = body.getBrush().Name;
+			state.BodySaturation = body.Saturation;
+			state.BodyColor      = body.Color;
+			::logInfo("[mod_nachzehrer_curse] captureState: BodyBrush=" + state.BodyBrush);
+		}
+		catch (e) { ::logInfo("[mod_nachzehrer_curse] captureState: body failed: " + e); }
+
+		try
+		{
+			local head = _cursed.getSprite("head");
+			state.HeadBrush      = head.getBrush().Name;
+			state.HeadSaturation = head.Saturation;
+			state.HeadColor      = head.Color;
+			::logInfo("[mod_nachzehrer_curse] captureState: HeadBrush=" + state.HeadBrush);
+		}
+		catch (e) { ::logInfo("[mod_nachzehrer_curse] captureState: head failed: " + e); }
+
+		try { state.InjuryBrush = _cursed.getSprite("injury").getBrush().Name; } catch (e) {}
+
+		foreach (name in ["hair", "beard", "beard_top", "eye_rings", "closed_eyes"])
+		{
+			try { state.HiddenSpritesVisible[name] <- _cursed.getSprite(name).Visible; } catch (e) {}
+		}
+		::logInfo("[mod_nachzehrer_curse] captureState: HiddenSpritesVisible captured");
+
+		try { state.SoundDamage = _cursed.m.Sound[this.Const.Sound.ActorEvent.DamageReceived]; } catch (e) {}
+		try { state.SoundDeath  = _cursed.m.Sound[this.Const.Sound.ActorEvent.Death]; } catch (e) {}
+		try { state.SoundFlee   = _cursed.m.Sound[this.Const.Sound.ActorEvent.Flee]; } catch (e) {}
+		try { state.SoundIdle   = _cursed.m.Sound[this.Const.Sound.ActorEvent.Idle]; } catch (e) {}
+		::logInfo("[mod_nachzehrer_curse] captureState: sounds captured");
+
+		return state;
 	}
 
 	function hideEquipment( _cursed )
