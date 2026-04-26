@@ -1,7 +1,6 @@
 this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 	m = {
-		TurnsLeft = 1,
-		TransformPending = false
+		TurnsLeft = 1
 	},
 
 	function create()
@@ -35,7 +34,6 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 
 		if (this.m.TurnsLeft <= 0)
 		{
-			this.m.TransformPending = true;
 			local feastSounds = [
 				"sounds/enemies/gruesome_feast_01.wav",
 				"sounds/enemies/gruesome_feast_02.wav",
@@ -47,14 +45,9 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 			{
 				this.Sound.play(feastSounds[this.Math.rand(0, feastSounds.len() - 1)], this.Const.Sound.Volume.Skill, tile.Pos);
 			}
-		}
-	}
 
-	function onTurnEnd()
-	{
-		if (!this.m.TransformPending) return;
-		this.m.TransformPending = false;
-		this.transform();
+			this.transform();
+		}
 	}
 
 	// Transform the entity in-place: swap sprites, sounds, and skills to ghoul equivalents.
