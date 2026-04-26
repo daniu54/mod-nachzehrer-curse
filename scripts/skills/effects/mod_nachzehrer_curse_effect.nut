@@ -69,24 +69,13 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		this.removeSelf();
 	}
 
-	// Clear appearance fields so the game hides body armor, helmet, and accessory sprites,
-	// then hide the surcoat sprite layer (managed separately by heraldic_armor, not in Appearance).
 	function hideEquipment( _cursed )
 	{
-		try
+		foreach (name in ["armor", "helmet", "helmet_damage", "surcoat"])
 		{
-			local app = _cursed.getItems().getAppearance();
-			app.Armor = "";
-			app.ArmorUpgradeFront = "";
-			app.ArmorUpgradeBack = "";
-			app.Accessory = "";
-			app.Helmet = "";
-			app.HelmetDamage = "";
-			_cursed.getItems().updateAppearance();
+			try { _cursed.getSprite(name).Visible = false; }
+			catch (e) { ::logInfo("[mod_nachzehrer_curse] hideEquipment: " + name + " sprite not found"); }
 		}
-		catch (e) { ::logInfo("[mod_nachzehrer_curse] hideEquipment appearance clear failed: " + e); }
-
-		try { _cursed.getSprite("surcoat").Visible = false; } catch (e) {}
 	}
 
 	// For non-player-controlled entities, replace the AI agent with the ghoul agent
