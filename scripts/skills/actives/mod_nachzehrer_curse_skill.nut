@@ -101,8 +101,8 @@ this.mod_nachzehrer_curse_skill <- this.inherit("scripts/skills/skill", {
 			local knife = this.getEquippedDagger();
 			if (knife != null)
 			{
-				knife.lowerCondition(knife.m.Condition);
 				::logInfo("[mod_nachzehrer_curse] Knife consumed: " + knife.getName());
+				_user.getItems().unequip(_user.getItems().getItemAtSlot(this.Const.ItemSlot.Mainhand));
 			}
 		}
 
@@ -137,7 +137,7 @@ this.mod_nachzehrer_curse_skill <- this.inherit("scripts/skills/skill", {
 				if (_target.getFlags().has("human"))
 				{
 					::logInfo("[mod_nachzehrer_curse] HP damage " + hpDamageDealt + " dealt to humanoid " + _target.getName() + ", applying curse (3 turns)");
-					this.applyCurse(_target, 3, "undead");
+					this.applyCurse(_target, 3);
 				}
 				else
 				{
@@ -157,33 +157,29 @@ this.mod_nachzehrer_curse_skill <- this.inherit("scripts/skills/skill", {
 	function useOnFriendly( _user, _target, _relation )
 	{
 		local turns = 0;
-		local ghoulFaction = "";
 
 		if (_relation == "self")
 		{
 			turns = 1;
-			ghoulFaction = "player";
 			::logInfo("[mod_nachzehrer_curse] Self-curse applied, 1 turn");
 		}
 		else if (_relation == "player_bro")
 		{
 			turns = 1;
-			ghoulFaction = "player";
 			::logInfo("[mod_nachzehrer_curse] Player bro curse applied to " + _target.getName() + ", 1 turn");
 		}
 		else
 		{
 			// ai_ally
 			turns = 2;
-			ghoulFaction = "player_animal";
 			::logInfo("[mod_nachzehrer_curse] AI ally curse applied to " + _target.getName() + ", 2 turns");
 		}
 
-		this.applyCurse(_target, turns, ghoulFaction);
+		this.applyCurse(_target, turns);
 		return true;
 	}
 
-	function applyCurse( _target, _turnsLeft, _ghoulFaction )
+	function applyCurse( _target, _turnsLeft )
 	{
 		if (_target.getSkills().hasSkill("effects.mod_nachzehrer_curse"))
 		{
@@ -193,9 +189,8 @@ this.mod_nachzehrer_curse_skill <- this.inherit("scripts/skills/skill", {
 
 		local effect = this.new("scripts/skills/effects/mod_nachzehrer_curse_effect");
 		effect.setTurnsLeft(_turnsLeft);
-		effect.setGhoulFaction(_ghoulFaction);
 		_target.getSkills().add(effect);
-		::logInfo("[mod_nachzehrer_curse] Curse applied to " + _target.getName() + ": " + _turnsLeft + " turns, ghoulFaction=" + _ghoulFaction);
+		::logInfo("[mod_nachzehrer_curse] Curse applied to " + _target.getName() + ": " + _turnsLeft + " turns");
 	}
 
 	// Classify the relationship from the user's perspective.
