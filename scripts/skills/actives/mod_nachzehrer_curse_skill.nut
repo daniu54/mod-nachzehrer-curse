@@ -101,8 +101,8 @@ this.mod_nachzehrer_curse_skill <- this.inherit("scripts/skills/skill", {
 			local knife = this.getEquippedDagger();
 			if (knife != null)
 			{
-				knife.lowerCondition(knife.m.Condition);
 				::logInfo("[mod_nachzehrer_curse] Knife consumed: " + knife.getName());
+				_user.getItems().unequip(_user.getItems().getItemAtSlot(this.Const.ItemSlot.Mainhand));
 			}
 		}
 
