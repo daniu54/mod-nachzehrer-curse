@@ -275,7 +275,7 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		// appear facing the wrong direction.
 		try
 		{
-			local flip = !_cursed.isAlliedWithPlayer();
+			local flip = _cursed.isAlliedWithPlayer();
 			foreach (name in ["socket", "body", "armor", "head", "face", "injury",
 			                   "beard", "hair", "helmet", "helmet_damage",
 			                   "beard_top", "body_blood", "dirt"])
