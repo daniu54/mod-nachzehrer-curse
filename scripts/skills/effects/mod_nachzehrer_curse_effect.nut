@@ -58,6 +58,7 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		::logInfo("[mod_nachzehrer_curse] Transforming " + cursed.getName() + " (sprite swap)");
 
 		this.patchGhoulMethods(cursed);
+		this.hideEquipment(cursed);
 		this.swapSprites(cursed);
 		this.swapSounds(cursed);
 		this.addGhoulSkills(cursed);
@@ -67,6 +68,26 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 
 		::logInfo("[mod_nachzehrer_curse] " + cursed.getName() + " transformation complete");
 		this.removeSelf();
+	}
+
+	// Clear appearance fields so the game hides body armor, helmet, and accessory sprites,
+	// then hide the surcoat sprite layer (managed separately by heraldic_armor, not in Appearance).
+	function hideEquipment( _cursed )
+	{
+		try
+		{
+			local app = _cursed.getItems().getAppearance();
+			app.Armor = "";
+			app.ArmorUpgradeFront = "";
+			app.ArmorUpgradeBack = "";
+			app.Accessory = "";
+			app.Helmet = "";
+			app.HelmetDamage = "";
+			_cursed.getItems().updateAppearance();
+		}
+		catch (e) { ::logInfo("[mod_nachzehrer_curse] hideEquipment appearance clear failed: " + e); }
+
+		try { _cursed.getSprite("surcoat").Visible = false; } catch (e) {}
 	}
 
 	// Inject ghoul-specific methods that skills like ghoul_claws expect on the actor.
