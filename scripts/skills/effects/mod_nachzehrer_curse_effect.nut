@@ -128,6 +128,23 @@ this.mod_nachzehrer_curse_effect <- this.inherit("scripts/skills/skill", {
 		{
 			try { _cursed.getSprite(name).Visible = false; } catch (e) {}
 		}
+
+		// Re-apply correct horizontal flip after setBrush resets it.
+		// Allied entities (player side, facing right) need flip=false;
+		// enemy entities need flip=true. The user-visible issue was that
+		// allied bros showed the ghoul sprite facing the wrong direction.
+		try
+		{
+			local flip = !_cursed.isAlliedWithPlayer();
+			foreach (name in ["socket", "body", "armor", "head", "face", "injury",
+			                   "beard", "hair", "helmet", "helmet_damage",
+			                   "beard_top", "body_blood", "dirt"])
+			{
+				try { _cursed.getSprite(name).setHorizontalFlipping(flip); } catch (e) {}
+			}
+			::logInfo("[mod_nachzehrer_curse] Sprite flip set to " + flip + " for " + _cursed.getName());
+		}
+		catch (e) { ::logInfo("[mod_nachzehrer_curse] flipSprites failed: " + e); }
 	}
 
 	function swapSounds( _cursed )
